@@ -30,6 +30,7 @@ override CXXFLAGS :=							\
 
 PREFIX ?= /usr
 
+NASM               := nasm
 SOVERSION          := 0
 STATIC_LIB_SUFFIX  := .a
 SHARED_LIB_SUFFIX  := .so.$(SOVERSION)
@@ -73,6 +74,7 @@ ifneq ($(V),1)
         QUIET_LN       = @echo '  LN      ' $@;
         QUIET_CP       = @echo '  CP      ' $@;
         QUIET_GEN      = @echo '  GEN     ' $@;
+        QUIET_NASM     = @echo '  NASM    ' $@;
 endif
 endif
 
@@ -112,8 +114,7 @@ $(SHARED_LIB_OBJ): %.shlib.o: %.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
 
 # Create static library
 $(STATIC_LIB):$(STATIC_LIB_OBJ) parng/prediction-x86_64-avx.o
-#	$(QUIET_AR) $(AR) cr $@ $+
-	$(AR) cr $@ $+
+	$(QUIET_AR) $(AR) cr $@ $+
 
 $(LIB_LIBDEFLATE):
 	(cd libdeflate; $(MAKE))
@@ -122,18 +123,16 @@ DEFAULT_TARGETS += $(STATIC_LIB)
 
 # Create shared library
 $(SHARED_LIB):$(SHARED_LIB_OBJ) parng/prediction-x86_64-avx.o $(LIB_LIBDEFLATE)
-	# $(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
-	# 	$(SHARED_LIB_LDFLAGS) -shared $+ $(LIB_LIBDEFLATE)
-	$(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
-		$(SHARED_LIB_LDFLAGS) -shared $+ $(LIB_LIBDEFLATE)
+	$(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
+		$(SHARED_LIB_LDFLAGS) -shared $+
 
 parng/prediction-x86_64-avx.o: parng/prediction-x86_64-avx.asm
-	nasm -fwin64 -o $@ $<
+	$(QUIET_CCLD) $(NASM) -fwin64 -o $@ $<
 
 DEFAULT_TARGETS += $(SHARED_LIB)
 
 ifdef SOVERSION
-# Create the symlink libdeflate.so => libdeflate.so.$SOVERSION
+# Create the symlink liblodepngturbo.so => liblodepngturbo.so.$SOVERSION
 liblodepngturbo.so:$(SHARED_LIB)
 	$(QUIET_LN) ln -sf $+ $@
 DEFAULT_TARGETS += liblodepngturbo.so
