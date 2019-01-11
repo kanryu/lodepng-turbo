@@ -95,7 +95,8 @@ LIB_HEADERS := lodepng.h libdeflate/libdeflate.h
 
 LIB_SRC := lodepng.cpp lodepng-turbo.cpp
 
-LIB_LIBDEFLATE := -L./libdeflate -llibdeflatestatic
+#LIB_LIBDEFLATE := -L./libdeflate -llibdeflatestatic
+LIB_LIBDEFLATE := ./libdeflate/libdeflatestatic.lib
 
 STATIC_LIB_OBJ := $(LIB_SRC:.cpp=.o) 
 SHARED_LIB_OBJ := $(LIB_SRC:.cpp=.shlib.o)
@@ -114,10 +115,13 @@ $(STATIC_LIB):$(STATIC_LIB_OBJ) parng/prediction-x86_64-avx.o
 #	$(QUIET_AR) $(AR) cr $@ $+
 	$(AR) cr $@ $+
 
+$(LIB_LIBDEFLATE):
+	(cd libdeflate; $(MAKE))
+
 DEFAULT_TARGETS += $(STATIC_LIB)
 
 # Create shared library
-$(SHARED_LIB):$(SHARED_LIB_OBJ) parng/prediction-x86_64-avx.o
+$(SHARED_LIB):$(SHARED_LIB_OBJ) parng/prediction-x86_64-avx.o $(LIB_LIBDEFLATE)
 	# $(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
 	# 	$(SHARED_LIB_LDFLAGS) -shared $+ $(LIB_LIBDEFLATE)
 	$(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
@@ -257,6 +261,9 @@ clean:
 		$(DEFAULT_TARGETS) $(TEST_PROGRAMS) programs/config.h \
 		liblodepngturbo.lib liblodepngturbostatic.lib \
 		.lib-cflags .prog-cflags
+
+clean-all: clean
+	(cd libdeflate;$(MAKE) clean)
 
 realclean: clean
 	rm -f tags cscope* run_tests.log
