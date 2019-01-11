@@ -68,6 +68,14 @@ static void* lodepng_malloc(size_t size)
   return malloc(size);
 }
 
+static void* lodepng_calloc(size_t size)
+{
+#ifdef LODEPNG_MAX_ALLOC
+	if (size > LODEPNG_MAX_ALLOC) return 0;
+#endif
+	return calloc((size + sizeof(int) - 1) / sizeof(int), sizeof(int));
+}
+
 static void* lodepng_realloc(void* ptr, size_t new_size)
 {
 #ifdef LODEPNG_MAX_ALLOC
@@ -4225,7 +4233,7 @@ unsigned lodepng_inspect(unsigned* w, unsigned* h, LodePNGState* state,
   return state->error;
 }
 
-static unsigned unfilterScanline(unsigned char* recon, const unsigned char* scanline, const unsigned char* precon,
+unsigned unfilterScanline(unsigned char* recon, const unsigned char* scanline, const unsigned char* precon,
                                  size_t bytewidth, unsigned char filterType, size_t length)
 {
   /*
@@ -4299,6 +4307,8 @@ static unsigned unfilterScanline(unsigned char* recon, const unsigned char* scan
   return 0;
 }
 
+#ifndef LODEPNG_TURBO_COMPILE
+
 static unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w, unsigned h, unsigned bpp)
 {
   /*
@@ -4329,6 +4339,9 @@ static unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w
 
   return 0;
 }
+#else
+unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w, unsigned h, unsigned bpp, LodePNGState* state);
+#endif
 
 /*
 in: Adam7 interlaced image, with no padding bits between scanlines, but between
@@ -4422,7 +4435,7 @@ static void removePaddingBits(unsigned char* out, const unsigned char* in,
 the IDAT chunks (with filter index bytes and possible padding bits)
 return value is error*/
 static unsigned postProcessScanlines(unsigned char* out, unsigned char* in,
-                                     unsigned w, unsigned h, const LodePNGInfo* info_png)
+                                     unsigned w, unsigned h, LodePNGState* state)
 {
   /*
   This function converts the filtered-padded-interlaced data into pure 2D image buffer with the PNG's colortype.
@@ -4431,18 +4444,18 @@ static unsigned postProcessScanlines(unsigned char* out, unsigned char* in,
   *) if adam7: 1) 7x unfilter 2) 7x remove padding bits 3) Adam7_deinterlace
   NOTE: the in buffer will be overwritten with intermediate data!
   */
-  unsigned bpp = lodepng_get_bpp(&info_png->color);
+  unsigned bpp = lodepng_get_bpp(&state->info_png.color);
   if(bpp == 0) return 31; /*error: invalid colortype*/
 
-  if(info_png->interlace_method == 0)
+  if(state->info_png.interlace_method == 0)
   {
     if(bpp < 8 && w * bpp != ((w * bpp + 7) / 8) * 8)
     {
-      CERROR_TRY_RETURN(unfilter(in, in, w, h, bpp));
+      CERROR_TRY_RETURN(unfilter(in, in, w, h, bpp, state));
       removePaddingBits(out, in, w * bpp, ((w * bpp + 7) / 8) * 8, h);
     }
     /*we can immediately filter into the out buffer, no other steps needed*/
-    else CERROR_TRY_RETURN(unfilter(out, in, w, h, bpp));
+    else CERROR_TRY_RETURN(unfilter(out, in, w, h, bpp, state));
   }
   else /*interlace_method is 1 (Adam7)*/
   {
@@ -4453,7 +4466,7 @@ static unsigned postProcessScanlines(unsigned char* out, unsigned char* in,
 
     for(i = 0; i != 7; ++i)
     {
-      CERROR_TRY_RETURN(unfilter(&in[padded_passstart[i]], &in[filter_passstart[i]], passw[i], passh[i], bpp));
+      CERROR_TRY_RETURN(unfilter(&in[padded_passstart[i]], &in[filter_passstart[i]], passw[i], passh[i], bpp, state));
       /*TODO: possible efficiency improvement: if in this reduced image the bits fit nicely in 1 scanline,
       move bytes instead of bits or move not at all*/
       if(bpp < 8)
@@ -5166,13 +5179,13 @@ static void decodeGeneric(unsigned char** out, unsigned* w, unsigned* h,
   if(!state->error)
   {
     outsize = lodepng_get_raw_size(*w, *h, &state->info_png.color);
-    *out = (unsigned char*)lodepng_malloc(outsize);
+    *out = (unsigned char*)lodepng_calloc(outsize);
     if(!*out) state->error = 83; /*alloc fail*/
   }
   if(!state->error)
   {
-    for(i = 0; i < outsize; i++) (*out)[i] = 0;
-    state->error = postProcessScanlines(*out, scanlines.data, *w, *h, &state->info_png);
+    //for(i = 0; i < outsize; i++) (*out)[i] = 0;
+    state->error = postProcessScanlines(*out, scanlines.data, *w, *h, state);
   }
   ucvector_cleanup(&scanlines);
 }

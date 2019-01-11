@@ -1,3 +1,6 @@
 [submodule "libdeflate"]
 	path = libdeflate
 	url = https://github.com/ebiggers/libdeflate
+[submodule "parng"]
+	path = parng
+	url = https://github.com/pcwalton/parng

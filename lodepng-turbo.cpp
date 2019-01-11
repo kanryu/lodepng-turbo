@@ -25,6 +25,15 @@ freely, subject to the following restrictions:
 
 #include "lodepng.h"
 #include "libdeflate/libdeflate.h"
+#include "parng_emu.h"
+
+/*Try the code, if it returns error, also return the error.*/
+#define CERROR_TRY_RETURN(call)\
+{\
+  unsigned error = call;\
+  if(error) return error;\
+}
+
 
 #ifdef LODEPNG_COMPILE_ENCODER
 
@@ -106,4 +115,57 @@ void lodepng_decompress_settings_init(LodePNGDecompressSettings* settings)
 unsigned lodepng_crc32(const unsigned char* data, size_t length)
 {
 	return libdeflate_crc32(0, data, length);
+}
+unsigned unfilterScanline(unsigned char* recon, const unsigned char* scanline, const unsigned char* precon,
+                                 size_t bytewidth, unsigned char filterType, size_t length);
+
+unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w, unsigned h, unsigned bpp, LodePNGState* state)
+{
+  /*
+  For PNG filter method 0
+  this function unfilters a single image (e.g. without interlacing this is called once, with Adam7 seven times)
+  out must have enough bytes allocated already, in must have the scanlines + 1 filtertype byte per scanline
+  w and h are image dimensions or dimensions of reduced image, bpp is bits per pixel
+  in and out are allowed to be the same memory address (but aren't the same size since in has the extra filter bytes)
+  */
+
+  unsigned y;
+  unsigned char* prevline = 0;
+
+  /*bytewidth is used for filtering, is 1 when bpp < 8, number of bytes per pixel otherwise*/
+  size_t bytewidth = (bpp + 7) / 8;
+  size_t linebytes = (w * bpp + 7) / 8;
+
+  for(y = 0; y < h; ++y)
+  {
+    size_t outindex = linebytes * y;
+    size_t inindex = (1 + linebytes) * y; /*the extra filterbyte added to each row*/
+    unsigned char filterType = in[inindex];
+
+	switch ((filterType << 8) + bytewidth) {
+	default:
+		CERROR_TRY_RETURN(unfilterScanline(&out[outindex], &in[inindex + 1], prevline, bytewidth, filterType, linebytes));
+		break;
+	case (PNG_FILTER_VALUE_NONE << 8) + 1: parng_predict_scanline_none_packed_8bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_NONE << 8) + 2: parng_predict_scanline_none_packed_16bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_NONE << 8) + 3: parng_predict_scanline_none_strided_24bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_NONE << 8) + 4: parng_predict_scanline_none_strided_32bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_SUB << 8) + 1: parng_predict_scanline_left_packed_8bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_SUB << 8) + 2: parng_predict_scanline_left_packed_16bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_SUB << 8) + 3: parng_predict_scanline_left_strided_24bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_SUB << 8) + 4: parng_predict_scanline_left_strided_32bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_UP << 8) + 1: parng_predict_scanline_up_packed_8bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_UP << 8) + 2: parng_predict_scanline_up_packed_16bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_UP << 8) + 3: parng_predict_scanline_up_strided_24bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_UP << 8) + 4: parng_predict_scanline_up_strided_32bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_AVG << 8) + 3: parng_predict_scanline_average_strided_24bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_AVG << 8) + 4: parng_predict_scanline_average_strided_32bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_PAETH << 8) + 3: parng_predict_scanline_paeth_strided_24bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	case (PNG_FILTER_VALUE_PAETH << 8) + 4: parng_predict_scanline_paeth_strided_32bpp(&out[outindex], &in[inindex + 1], prevline, bytewidth, linebytes); break;
+	}
+
+    prevline = &out[outindex];
+  }
+
+  return 0;
 }

@@ -97,7 +97,7 @@ LIB_SRC := lodepng.cpp lodepng-turbo.cpp
 
 LIB_LIBDEFLATE := -L./libdeflate -llibdeflatestatic
 
-STATIC_LIB_OBJ := $(LIB_SRC:.cpp=.o)
+STATIC_LIB_OBJ := $(LIB_SRC:.cpp=.o) 
 SHARED_LIB_OBJ := $(LIB_SRC:.cpp=.shlib.o)
 
 # Compile static library object files
@@ -110,15 +110,21 @@ $(SHARED_LIB_OBJ): %.shlib.o: %.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
 		$(SHARED_LIB_CXXFLAGS) $<
 
 # Create static library
-$(STATIC_LIB):$(STATIC_LIB_OBJ)
-	$(QUIET_AR) $(AR) cr $@ $+
+$(STATIC_LIB):$(STATIC_LIB_OBJ) parng/prediction-x86_64-avx.o
+#	$(QUIET_AR) $(AR) cr $@ $+
+	$(AR) cr $@ $+
 
 DEFAULT_TARGETS += $(STATIC_LIB)
 
 # Create shared library
-$(SHARED_LIB):$(SHARED_LIB_OBJ)
-	$(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
+$(SHARED_LIB):$(SHARED_LIB_OBJ) parng/prediction-x86_64-avx.o
+	# $(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
+	# 	$(SHARED_LIB_LDFLAGS) -shared $+ $(LIB_LIBDEFLATE)
+	$(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
 		$(SHARED_LIB_LDFLAGS) -shared $+ $(LIB_LIBDEFLATE)
+
+parng/prediction-x86_64-avx.o: parng/prediction-x86_64-avx.asm
+	nasm -fwin64 -o $@ $<
 
 DEFAULT_TARGETS += $(SHARED_LIB)
 
@@ -244,7 +250,7 @@ help:
 
 clean:
 	rm -f *.a *.dll *.exe *.exp *.so \
-		*.o \
+		*.o parng/*.o \
 		*.obj \
 		*.dllobj \
 		programs/*.o programs/*.obj \
