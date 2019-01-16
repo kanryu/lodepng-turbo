@@ -23,9 +23,9 @@ liblodepngturbo.dll(so) is a shared library and can be used alone. For Windows, 
 
 liblodepngturbostatic.a (lib) is a static library and can be statically linked to your library. In this case libdeflatestatic.a also needs to be linked.
 
-## for MSVC
+### for MSVC
 
-Attention: When using libpng-turbo with msvc, libraries built with msys2 (g++) can not be used because of different naming conventions.
+Attention: When using libpng-turbo with msvc, lodepng(-turbo) built with msys2 (g++) can not be used because of different naming conventions.
 
 In addition to msvc, g++ of msys2 is necessary for building this library.
 To build libdeflatestatic.lib in the msys2 environment first.
