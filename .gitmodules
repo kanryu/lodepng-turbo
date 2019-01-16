@@ -4,3 +4,6 @@
 [submodule "parng"]
 	path = parng
 	url = https://github.com/pcwalton/parng
+[submodule "simdtests"]
+	path = simdtests
+	url = https://github.com/kobalicek/simdtests

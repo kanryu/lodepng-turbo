@@ -21,7 +21,7 @@ cc-option = $(shell if $(CC) $(1) -c -x c /dev/null -o /dev/null \
 	      1>&2 2>/dev/null; then echo $(1); fi)
 
 override CXXFLAGS :=							\
-	$(CXXFLAGS) -O2 -fomit-frame-pointer -std=c++11 -I. -Ilibdeflate \
+	$(CXXFLAGS) -O2 -fomit-frame-pointer -std=c++11 -I. -Ilibdeflate -Isimdtests/depng \
 	-Wall -Wundef							\
 
 # We don't define any CPPFLAGS, but support the user specifying it.
@@ -41,7 +41,7 @@ PROG_CXXFLAGS        :=
 HARD_LINKS         := 1
 
 # Compiling for Windows with MinGW?
-ifneq ($(findstring -mingw,$(shell $(CC) -dumpmachine 2>/dev/null)),)
+ifneq ($(findstring -mingw,$(shell $(MAKE) -dumpmachine 2>/dev/null)),)
     SOVERSION          :=
     STATIC_LIB_SUFFIX  := static.lib
     SHARED_LIB_SUFFIX  := .dll
@@ -97,23 +97,36 @@ LIB_HEADERS := lodepng.h libdeflate/libdeflate.h
 
 LIB_SRC := lodepng.cpp lodepng-turbo.cpp
 
+DEPNG_SRC := simdtests/depng/depng_ref.cpp simdtests/depng/depng_sse2.cpp
+
 #LIB_LIBDEFLATE := -L./libdeflate -llibdeflatestatic
 LIB_LIBDEFLATE := ./libdeflate/libdeflatestatic.lib
 
 STATIC_LIB_OBJ := $(LIB_SRC:.cpp=.o) 
 SHARED_LIB_OBJ := $(LIB_SRC:.cpp=.shlib.o)
 
+STATIC_DEPNG_OBJ := $(DEPNG_SRC:.cpp=.o) 
+SHARED_DEPNG_OBJ := $(DEPNG_SRC:.cpp=.shlib.o)
+
 # Compile static library object files
 $(STATIC_LIB_OBJ): %.o: %.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
-	$(QUIET_CC) $(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) $<
+	$(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) $<
+
+$(STATIC_DEPNG_OBJ): simdtests/depng/%.o: simdtests/depng/%.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
+	echo $(DEPNG_SRC) $(STATIC_DEPNG_OBJ)
+	$(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) $<
 
 # Compile shared library object files
 $(SHARED_LIB_OBJ): %.shlib.o: %.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
-	$(QUIET_CC) $(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) \
+	$(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) \
+		$(SHARED_LIB_CXXFLAGS) $<
+
+$(SHARED_DEPNG_OBJ): simdtests/depng/%.shlib.o: simdtests/depng/%.cpp $(LIB_HEADERS) $(COMMON_HEADERS) .lib-cflags
+	$(CXX) -o $@ -c $(CXXFLAGS) $(LIB_CXXFLAGS) \
 		$(SHARED_LIB_CXXFLAGS) $<
 
 # Create static library
-$(STATIC_LIB):$(STATIC_LIB_OBJ) parng/prediction-x86_64-avx.o
+$(STATIC_LIB):$(STATIC_LIB_OBJ) $(STATIC_DEPNG_OBJ) 
 	$(QUIET_AR) $(AR) cr $@ $+
 
 $(LIB_LIBDEFLATE):
@@ -122,12 +135,12 @@ $(LIB_LIBDEFLATE):
 DEFAULT_TARGETS += $(STATIC_LIB)
 
 # Create shared library
-$(SHARED_LIB):$(SHARED_LIB_OBJ) parng/prediction-x86_64-avx.o $(LIB_LIBDEFLATE)
+$(SHARED_LIB):$(SHARED_LIB_OBJ) $(LIB_LIBDEFLATE) $(SHARED_DEPNG_OBJ) 
 	$(QUIET_CCLD) $(CXX) -o $@ $(LDFLAGS) $(LIB_CXXFLAGS) \
 		$(SHARED_LIB_LDFLAGS) -shared $+
 
-parng/prediction-x86_64-avx.o: parng/prediction-x86_64-avx.asm
-	$(QUIET_CCLD) $(NASM) -fwin64 -o $@ $<
+# parng/prediction-x86_64-avx.o: parng/prediction-x86_64-avx.asm
+# 	$(QUIET_CCLD) $(NASM) -fwin64 -o $@ $<
 
 DEFAULT_TARGETS += $(SHARED_LIB)
 
@@ -167,40 +180,45 @@ endif
 # 			programs/test_checksums.c \
 # 			programs/test_incomplete_codes.c \
 # 			programs/test_slow_decompression.c
+PROG_CXXFLAGS := $(LIB_CXXFLAGS)
+PROG_COMMON_SRC      := lodepng_util.cpp
+NONTEST_PROG_SRC     := pngdetail.cpp
+TEST_PROG_COMMON_SRC := 
+TEST_PROG_SRC        := lodepng_unittest.cpp
 
-# NONTEST_PROGRAMS := $(NONTEST_PROG_SRC:programs/%.c=%$(PROG_SUFFIX))
-# DEFAULT_TARGETS  += $(NONTEST_PROGRAMS)
-# TEST_PROGRAMS    := $(TEST_PROG_SRC:programs/%.c=%$(PROG_SUFFIX))
+NONTEST_PROGRAMS := $(NONTEST_PROG_SRC:%.cpp=%$(PROG_SUFFIX))
+DEFAULT_TARGETS  += $(NONTEST_PROGRAMS)
+TEST_PROGRAMS    := $(TEST_PROG_SRC:%.cpp=%$(PROG_SUFFIX))
 
-# PROG_COMMON_OBJ      := $(PROG_COMMON_SRC:%.c=%.o)
-# NONTEST_PROG_OBJ     := $(NONTEST_PROG_SRC:%.c=%.o)
-# TEST_PROG_COMMON_OBJ := $(TEST_PROG_COMMON_SRC:%.c=%.o)
-# TEST_PROG_OBJ        := $(TEST_PROG_SRC:%.c=%.o)
+PROG_COMMON_OBJ      := $(PROG_COMMON_SRC:%.cpp=%.o)
+NONTEST_PROG_OBJ     := $(NONTEST_PROG_SRC:%.cpp=%.o)
+TEST_PROG_COMMON_OBJ := $(TEST_PROG_COMMON_SRC:%.cpp=%.o)
+TEST_PROG_OBJ        := $(TEST_PROG_SRC:%.cpp=%.o)
 
-# ALL_PROG_OBJ	     := $(PROG_COMMON_OBJ) $(NONTEST_PROG_OBJ) \
-# 			$(TEST_PROG_COMMON_OBJ) $(TEST_PROG_OBJ)
+ALL_PROG_OBJ	     := $(PROG_COMMON_OBJ) $(NONTEST_PROG_OBJ) \
+			$(TEST_PROG_COMMON_OBJ) $(TEST_PROG_OBJ)
 
 # # Generate autodetected configuration header
 # programs/config.h:programs/detect.sh .prog-cflags
 # 	$(QUIET_GEN) CC="$(CC)" CFLAGS="$(PROG_CFLAGS)" $< > $@
 
-# # Compile program object files
-# $(ALL_PROG_OBJ): %.o: %.c $(ALL_PROG_COMMON_HEADERS) $(COMMON_HEADERS) \
-# 			.prog-cflags
-# 	$(QUIET_CC) $(CC) -o $@ -c $(CPPFLAGS) $(PROG_CFLAGS) $<
+# Compile program object files
+$(ALL_PROG_OBJ): %.o: %.cpp $(ALL_PROG_COMMON_HEADERS) $(COMMON_HEADERS) \
+			.prog-cflags
+	$(CXX) -o $@ -c $(CXXFLAGS) $(PROG_CXXFLAGS) $<
 
 # Link the programs.
 #
 # Note: the test programs are not compiled by default.  One reason is that the
 # test programs must be linked with zlib for doing comparisons.
 
-# $(NONTEST_PROGRAMS): %$(PROG_SUFFIX): programs/%.o $(PROG_COMMON_OBJ) \
-# 			$(STATIC_LIB)
-# 	$(QUIET_CCLD) $(CC) -o $@ $(LDFLAGS) $(PROG_CFLAGS) $+
+$(NONTEST_PROGRAMS): %$(PROG_SUFFIX): %.o $(PROG_COMMON_OBJ) \
+			$(STATIC_LIB) $(LIB_LIBDEFLATE)
+	$(CXX) -o $@ $(LDFLAGS) $(PROG_CXXFLAGS) $+
 
-# $(TEST_PROGRAMS): %$(PROG_SUFFIX): programs/%.o $(PROG_COMMON_OBJ) \
-# 			$(TEST_PROG_COMMON_OBJ) $(STATIC_LIB)
-# 	$(QUIET_CCLD) $(CC) -o $@ $(LDFLAGS) $(PROG_CFLAGS) $+ -lz
+$(TEST_PROGRAMS): %$(PROG_SUFFIX): %.o $(PROG_COMMON_OBJ) \
+			$(TEST_PROG_COMMON_OBJ) $(STATIC_LIB) $(LIB_LIBDEFLATE)
+	$(CXX) -o $@ $(LDFLAGS) $(PROG_CXXFLAGS) $+ -lz
 
 # ifdef HARD_LINKS
 # # Hard link gunzip to gzip
@@ -225,6 +243,7 @@ endif
 ##############################################################################
 
 all:$(DEFAULT_TARGETS)
+	echo $(DEFAULT_TARGETS)
 
 install:all
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib $(STATIC_LIB)
@@ -253,7 +272,7 @@ help:
 
 clean:
 	rm -f *.a *.dll *.exe *.exp *.so \
-		*.o parng/*.o \
+		*.o parng/*.o simdtests/depng/*.o \
 		*.obj \
 		*.dllobj \
 		programs/*.o programs/*.obj \
