@@ -38,7 +38,7 @@ lodepng is a very easy-to-understand png library, which is the foundation of thi
 
 libdeflate is a very fast zlib compatible codec, and substantial decode processing is realized with this library.
 
-parng is an ambitious project to realize high-speed png decoding by parallel processing, but it is not actually operated and is not maintained. I used the unfilter of this project.
+SimdTests is a public domain to test SIMD optimized functions related mostly to 2D computer graphics.
 
 ## License
 
