@@ -4230,6 +4230,7 @@ LODEPNGAPI unsigned lodepng_inspect(unsigned* w, unsigned* h, LodePNGState* stat
   if(info->interlace_method > 1) CERROR_RETURN_ERROR(state->error, 34);
 
   state->error = checkColorValidity(info->color.colortype, info->color.bitdepth);
+  state->inspected = 1;
   return state->error;
 }
 
@@ -4977,9 +4978,10 @@ static void decodeGeneric(unsigned char** out, unsigned* w, unsigned* h,
 
   /*provide some proper output values if error will happen*/
   *out = 0;
-
-  state->error = lodepng_inspect(w, h, state, in, insize); /*reads header and resets other parameters in state->info_png*/
-  if(state->error) return;
+  if(!state->inspected) {
+    state->error = lodepng_inspect(w, h, state, in, insize); /*reads header and resets other parameters in state->info_png*/
+    if(state->error) return;
+  }
 
   if(lodepng_pixel_overflow(*w, *h, &state->info_png.color, &state->info_raw))
   {
@@ -5310,6 +5312,7 @@ LODEPNGAPI void lodepng_state_init(LodePNGState* state)
   lodepng_color_mode_init(&state->info_raw);
   lodepng_info_init(&state->info_png);
   state->error = 1;
+  state->inspected = 0;
 }
 
 LODEPNGAPI void lodepng_state_cleanup(LodePNGState* state)

@@ -188,7 +188,7 @@ TEST_PROG_COMMON_SRC :=
 TEST_PROG_SRC        := lodepng_unittest.cpp
 
 NONTEST_PROGRAMS := $(NONTEST_PROG_SRC:%.cpp=%$(PROG_SUFFIX))
-DEFAULT_TARGETS  += $(NONTEST_PROGRAMS)
+#DEFAULT_TARGETS  += $(NONTEST_PROGRAMS)
 TEST_PROGRAMS    := $(TEST_PROG_SRC:%.cpp=%$(PROG_SUFFIX))
 
 PROG_COMMON_OBJ      := $(PROG_COMMON_SRC:%.cpp=%.o)
@@ -244,7 +244,6 @@ $(TEST_PROGRAMS): %$(PROG_SUFFIX): %.o $(PROG_COMMON_OBJ) \
 ##############################################################################
 
 all:$(DEFAULT_TARGETS)
-	echo $(DEFAULT_TARGETS)
 
 install:all
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib $(STATIC_LIB)

@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
     QString infilename("in.png");
     QString outfilename("out.png");
-    
+
     if(argc == 0) {
-        qDebug() << "Usage: qt_lodepng_test [in.png] [out.png]"
+        qDebug() << "Usage: qt_lodepng_test [in.png] [out.png]";
         return 0;
     }
     if(argc > 1)
@@ -67,20 +67,40 @@ int main(int argc, char *argv[])
     unsigned result;
     LodePNGState state;
 
-    result = lodepng_state_init(&state);
+    state.inspected = 3; // dummy initialize value
+    qDebug() << "before init:" << state.inspected;
+    lodepng_state_init(&state);
+    qDebug() << "after init:" << state.inspected;
     result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
+    qDebug() << "inspect:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << state.inspected;
     state.decoder.color_convert = 0; // skip color converting
-    result = lodepng_decode(&out, &width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
 
-    QImage img(QSize(width, height), QImage::Format_Indexed8);
+    QImage::Format fmt = QImage::Format_Indexed8;
+    switch(state.info_png.color.colortype) {
+        case LodePNGColorType::LCT_GREY: fmt = QImage::Format_Grayscale8; break;
+        case LodePNGColorType::LCT_RGB: fmt = QImage::Format_RGB888; break;
+        case LodePNGColorType::LCT_PALETTE: fmt = QImage::Format_Indexed8; break;
+        case LodePNGColorType::LCT_RGBA: fmt = QImage::Format_RGBA8888; break;
+        case LodePNGColorType::LCT_GREY_ALPHA: fmt = QImage::Format_RGBA8888; break;
+    }
+    qDebug() << "colortype" << state.info_png.color.colortype << "format" << fmt;
+    if(state.info_png.color.colortype == LodePNGColorType::LCT_GREY_ALPHA) {
+        result = lodepng_decode32(&out, &width, &height, (unsigned char*)bytes.data(), bytes.size());
+    } else {
+        result = lodepng_decode(&out, &width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
+        qDebug() << "decode:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << fmt;
+    }
+
+    QImage img(QSize(width, height), fmt);
     if(state.info_png.color.palettesize > 0) {
         QVector<QRgb> palettes(state.info_png.color.palettesize);
-        // on x86 or x64 CPUs, must be swapped between R and B.
         unsigned char* pal = state.info_png.color.palette;
         for(int i = 0; i < state.info_png.color.palettesize; i++) {
+            // on x86 or x64 CPUs, must be swapped between R and B.
             palettes[i] = (pal[4*i+3] << 24) | (pal[4*i+0] << 16) | (pal[4*i+1] <<8) | pal[4*i+2];
         }
         img.setColorTable(palettes);
+        qDebug() << "palette set completed:" << state.info_png.color.palettesize;
     }
     memcpy(img.bits(), out, img.byteCount());
     img.save(outfilename);
@@ -88,8 +108,7 @@ int main(int argc, char *argv[])
 
     a.exit();
     return 0;
-}
-```
+}```
 
 ## Acknowledgments
 
