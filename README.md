@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
     QByteArray bytes;
     {
-        QFile fl(filename);
+        QFile fl(infilename);
         fl.open(QFile::ReadOnly);
         bytes = fl.readAll();
         fl.close();
