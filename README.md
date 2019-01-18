@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
         bytes = fl.readAll();
         fl.close();
     }
-    unsigned char* out;
+    unsigned char* out = nullptr;
     unsigned width,height;
     unsigned result;
     LodePNGState state;
