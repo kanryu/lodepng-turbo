@@ -41,6 +41,8 @@ Open the solution file in the vstudio folder and build it on msvc. The setting o
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
+    QString infilename("sample.png");
+    QString outfilename("test.png");
 
     QString filename(argv[1]);
     QByteArray bytes;
@@ -56,7 +58,7 @@ int main(int argc, char *argv[])
     unsigned result;
     LodePNGState state;
 
-    lodepng_state_init(&state);
+    result = lodepng_state_init(&state);
     result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
     state.decoder.color_convert = 0; // skip color converting
     result = lodepng_decode(&out, &width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
@@ -64,6 +66,7 @@ int main(int argc, char *argv[])
     QImage img(QSize(width, height), QImage::Format_Indexed8);
     if(state.info_png.color.palettesize > 0) {
         QVector<QRgb> palettes(state.info_png.color.palettesize);
+        // on x86 or x64 CPUs, must be swapped between R and B.
         unsigned char* pal = state.info_png.color.palette;
         for(int i = 0; i < state.info_png.color.palettesize; i++) {
             palettes[i] = (pal[4*i+3] << 24) | (pal[4*i+0] << 16) | (pal[4*i+1] <<8) | pal[4*i+2];
@@ -71,7 +74,8 @@ int main(int argc, char *argv[])
         img.setColorTable(palettes);
     }
     memcpy(img.bits(), out, img.byteCount());
-    img.save("test.png");
+    img.save(outfilename);
+    free(out);
 
     a.exit();
     return 0;
