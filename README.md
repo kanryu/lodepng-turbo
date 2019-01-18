@@ -15,6 +15,8 @@ Build lodepng-turbo with gcc/clang and GNU make.
 For Windows, the built library can also be used under msvc.
 
 ```shell
+$ git submodule init
+$ git submodule update
 $ make
 ```
 When it is built, static libraries and shared libraries are created.
