@@ -41,13 +41,20 @@ Open the solution file in the vstudio folder and build it on msvc. The setting o
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
-    QString infilename("sample.png");
-    QString outfilename("test.png");
+    QString infilename("in.png");
+    QString outfilename("out.png");
+    
+    if(argc == 0) {
+        qDebug() << "Usage: qt_lodepng_test [in.png] [out.png]"
+        return 0;
+    }
+    if(argc > 1)
+        infilename = QString(argv[1]);
+    if(argc > 2)
+        outfilename = QString(argv[2]);
 
-    QString filename(argv[1]);
     QByteArray bytes;
     {
-        qDebug() << filename << "opened.";
         QFile fl(filename);
         fl.open(QFile::ReadOnly);
         bytes = fl.readAll();
