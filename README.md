@@ -32,6 +32,52 @@ To build libdeflatestatic.lib in the msys2 environment first.
 
 Open the solution file in the vstudio folder and build it on msvc. The setting of the project file is set to build the static library of libpng - turbo, so change the setting if you want dll.
 
+## Loading sample
+
+```C++
+#include <QtGui>
+#include "lodepng.h"
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication a(argc, argv);
+
+    QString filename(argv[1]);
+    QByteArray bytes;
+    {
+        qDebug() << filename << "opened.";
+        QFile fl(filename);
+        fl.open(QFile::ReadOnly);
+        bytes = fl.readAll();
+        fl.close();
+    }
+    unsigned char* out;
+    unsigned width,height;
+    unsigned result;
+    LodePNGState state;
+
+    lodepng_state_init(&state);
+    result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
+    state.decoder.color_convert = 0; // skip color converting
+    result = lodepng_decode(&out, &width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
+
+    QImage img(QSize(width, height), QImage::Format_Indexed8);
+    if(state.info_png.color.palettesize > 0) {
+        QVector<QRgb> palettes(state.info_png.color.palettesize);
+        unsigned char* pal = state.info_png.color.palette;
+        for(int i = 0; i < state.info_png.color.palettesize; i++) {
+            palettes[i] = (pal[4*i+3] << 24) | (pal[4*i+0] << 16) | (pal[4*i+1] <<8) | pal[4*i+2];
+        }
+        img.setColorTable(palettes);
+    }
+    memcpy(img.bits(), out, img.byteCount());
+    img.save("test.png");
+
+    a.exit();
+    return 0;
+}
+```
+
 ## Acknowledgments
 
 lodepng is a very easy-to-understand png library, which is the foundation of this library.
