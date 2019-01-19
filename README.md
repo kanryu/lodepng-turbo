@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     QString infilename("in.png");
     QString outfilename("out.png");
 
-    if(argc == 0) {
+    if(argc <= 0) {
         qDebug() << "Usage: qt_lodepng_test [in.png] [out.png]";
         return 0;
     }
@@ -65,12 +65,14 @@ int main(int argc, char *argv[])
     unsigned char* out = nullptr;
     unsigned width,height;
     unsigned result;
-    LodePNGState state;
+    LodePNGState state; // png state
 
     state.inspected = 3; // dummy initialize value
     qDebug() << "before init:" << state.inspected;
     lodepng_state_init(&state);
     qDebug() << "after init:" << state.inspected;
+    
+    // check png header and get basical metadata
     result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
     qDebug() << "inspect:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << state.inspected;
     state.decoder.color_convert = 0; // skip color converting
@@ -85,6 +87,7 @@ int main(int argc, char *argv[])
     }
     qDebug() << "colortype" << state.info_png.color.colortype << "format" << fmt;
     if(state.info_png.color.colortype == LodePNGColorType::LCT_GREY_ALPHA) {
+        // LCT_GREY_ALPHA -> LCT_RGBA
         result = lodepng_decode32(&out, &width, &height, (unsigned char*)bytes.data(), bytes.size());
     } else {
         result = lodepng_decode(&out, &width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
@@ -92,6 +95,7 @@ int main(int argc, char *argv[])
     }
 
     QImage img(QSize(width, height), fmt);
+    // LodePNGColorType::LCT_PALETTE has palette
     if(state.info_png.color.palettesize > 0) {
         QVector<QRgb> palettes(state.info_png.color.palettesize);
         unsigned char* pal = state.info_png.color.palette;
