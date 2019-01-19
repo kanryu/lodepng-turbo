@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     QString infilename("in.png");
     QString outfilename("out.png");
 
-    if(argc <= 0) {
+    if(argc <= 1) {
         qDebug() << "Usage: qt_lodepng_test [in.png] [out.png]";
         return 0;
     }
@@ -62,19 +62,19 @@ int main(int argc, char *argv[])
         bytes = fl.readAll();
         fl.close();
     }
-    unsigned char* out = nullptr;
+    unsigned char* out = nullptr; // lodepng decodes a dynamically allocated bitmap into a buffer 
     unsigned width,height;
     unsigned result;
     LodePNGState state; // png state
 
     state.inspected = 3; // dummy initialize value
-    qDebug() << "before init:" << state.inspected;
+    qDebug() << "before init:" << state.inspected; // will be 3
     lodepng_state_init(&state);
-    qDebug() << "after init:" << state.inspected;
+    qDebug() << "after init:" << state.inspected; // will be 0
     
     // check png header and get basical metadata
     result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
-    qDebug() << "inspect:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << state.inspected;
+    qDebug() << "inspect:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << state.inspected; // will be 1
     state.decoder.color_convert = 0; // skip color converting
 
     QImage::Format fmt = QImage::Format_Indexed8;
