@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
         bytes = fl.readAll();
         fl.close();
     }
-    unsigned char* out = nullptr; // lodepng decodes a dynamically allocated bitmap into a buffer 
+    unsigned char* out = nullptr; // lodepng decodes a dynamically allocated bitmap into a buffer
     unsigned width,height;
     unsigned result;
     LodePNGState state; // png state
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     qDebug() << "before init:" << state.inspected; // will be 3
     lodepng_state_init(&state);
     qDebug() << "after init:" << state.inspected; // will be 0
-    
+
     // check png header and get basical metadata
     result = lodepng_inspect(&width, &height, &state, (unsigned char*)bytes.data(), bytes.size());
     qDebug() << "inspect:" << result << width << height << state.info_png.color.colortype << state.info_raw.colortype << state.inspected; // will be 1
@@ -106,15 +106,27 @@ int main(int argc, char *argv[])
         img.setColorTable(palettes);
         qDebug() << "palette set completed:" << state.info_png.color.palettesize;
     }
+    qDebug() << "bytesPerLine: " << img.bytesPerLine();
     int bytewidth = width*img.depth()/8;
     if(bytewidth == img.bytesPerLine())
     {
         memcpy(img.bits(), out, img.byteCount());
     } else {
-        // Since Bitmap pads each scanline with 4 bytes, there is a case that there is a gap in the byte stream.
         qDebug() << "bytesPerLine" << img.bytesPerLine() << "bytewidth" << bytewidth;
         for(int y = 0; y < img.height(); y++)
             memcpy(img.scanLine(y), &out[y*bytewidth], bytewidth);
+    }
+    // Some PNG images may use transparent colors
+    // instead of using alpha values to describe transparency,
+    // but lodepng does not take this into consideration.
+    // (When Convert is Disabled)
+    if(state.info_png.color.key_defined) {
+        qDebug() << "MaskOutColor:" << QRgb(((state.info_png.color.key_r & 0xff) << 16)
+                                           | ((state.info_png.color.key_g & 0xff) << 8)
+                                           | (state.info_png.color.key_b & 0xff));
+        img = img.createMaskFromColor(QRgb(((state.info_png.color.key_r & 0xff) << 16)
+                                     | ((state.info_png.color.key_g & 0xff) << 8)
+                                     | (state.info_png.color.key_b & 0xff)), Qt::MaskOutColor);
     }
     img.save(outfilename);
     free(out);
