@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         img.setColorTable(palettes);
         qDebug() << "palette set completed:" << state.info_png.color.palettesize;
     }
-    qDebug() << "bytesPerLine: " << img.bytesPerLine();
+    // Since Bitmap pads each scanline with 4 bytes, there is a case that there is a gap in the byte stream.
     int bytewidth = width*img.depth()/8;
     if(bytewidth == img.bytesPerLine())
     {
