@@ -121,12 +121,16 @@ int main(int argc, char *argv[])
     // but lodepng does not take this into consideration.
     // (When Convert is Disabled)
     if(state.info_png.color.key_defined) {
-        qDebug() << "MaskOutColor:" << QRgb(((state.info_png.color.key_r & 0xff) << 16)
-                                           | ((state.info_png.color.key_g & 0xff) << 8)
-                                           | (state.info_png.color.key_b & 0xff));
-        img = img.createMaskFromColor(QRgb(((state.info_png.color.key_r & 0xff) << 16)
-                                     | ((state.info_png.color.key_g & 0xff) << 8)
-                                     | (state.info_png.color.key_b & 0xff)), Qt::MaskOutColor);
+        QRgb mask = QRgb(((state.info_png.color.key_r & 0xff) << 16)
+                         | ((state.info_png.color.key_g & 0xff) << 8)
+                         | (state.info_png.color.key_b & 0xff));
+        qDebug() << "MaskOutColor:" << mask;
+        qDebug() << "depth" << img.depth();
+        img = img.convertToFormat(QImage::Format_ARGB32);
+        for(QRgb* pix = (QRgb*)img.bits(); (uchar*)pix < img.bits()+img.byteCount(); pix++) {
+            if(((*pix - mask) & 0x00ffffff) == 0x0)
+                    *pix = 0x0;
+        }
     }
     img.save(outfilename);
     free(out);
