@@ -140,13 +140,16 @@ unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w, unsig
   */
 
   unsigned y;
-  //unsigned char* prevline = 0;
 
   /*bytewidth is used for filtering, is 1 when bpp < 8, number of bytes per pixel otherwise*/
-  size_t bytewidth = (bpp + 7) / 8;
-  size_t linebytes = (w * bpp + 7) / 8;
-  size_t png_stride = 1 + linebytes;
+  uint32_t bytewidth = bpp / 8;
+  uint32_t linebytes = w * bytewidth;
+  uint32_t png_stride = 1 + linebytes;
 
+  //printf("linebytes: %d, modified: %d\n", linebytes, (linebytes + 3) & 0xfffffffc);
+  //linebytes = ((w + 3) & 0xfffffffc) * bytewidth;
+
+ // unsigned char* prevline = 0;
  // for(y = 0; y < h; ++y)
  // {
  //   size_t outindex = linebytes * y;
@@ -180,7 +183,7 @@ unsigned unfilter(unsigned char* out, const unsigned char* in, unsigned w, unsig
   depng_filter_sse2((unsigned char*)in, h, bytewidth, png_stride);
   for (y = 0; y < h; ++y)
   {
-	  memcpy(&out[linebytes * y], &in[1 + png_stride * y], linebytes);
+	  memcpy(&out[linebytes * y], &in[1 + png_stride * y], png_stride-1);
   }
   //writeoutdata("decoded.dat", in, (w+1)*h*bytewidth);
   //writeoutdata("unfiltered.dat", out, w*h*bytewidth);
